@@ -2,9 +2,9 @@ pragma solidity ^0.4.23;
 
 // ----------------------------------------------------------------------------
 //
-// Fantom Foundation FTM token public sale contract
+// Enosi Foundation FTM token public sale contract
 //
-// For details, please visit: http://fantom.foundation
+// For details, please visit: http://Enosi.foundation
 //
 //
 // written by Alex Kampa - ak@sikoba.com
@@ -190,98 +190,11 @@ contract ERC20Token is ERC20Interface, Owned {
 
 // ----------------------------------------------------------------------------
 //
-// LockSlots
+// EnosiIcoDates
 //
 // ----------------------------------------------------------------------------
 
-contract LockSlots is ERC20Token {
-
-    using SafeMath for uint;
-
-    uint public constant LOCK_SLOTS = 5;
-    mapping(address => uint[LOCK_SLOTS]) public lockTerm;
-    mapping(address => uint[LOCK_SLOTS]) public lockAmnt;
-    mapping(address => bool) public mayHaveLockedTokens;
-
-    event RegisteredLockedTokens(address indexed account, uint indexed idx, uint tokens, uint term);
-
-    function registerLockedTokens(address _account, uint _tokens, uint _term) internal returns (uint idx) {
-        require(_term > now, "lock term must be in the future");
-
-        // find a slot (clean up while doing this)
-        // use either the existing slot with the exact same term,
-        // of which there can be at most one, or the first empty slot
-        idx = 9999;
-        uint[LOCK_SLOTS] storage term = lockTerm[_account];
-        uint[LOCK_SLOTS] storage amnt = lockAmnt[_account];
-        for (uint i; i < LOCK_SLOTS; i++) {
-            if (term[i] < now) {
-                term[i] = 0;
-                amnt[i] = 0;
-                if (idx == 9999) idx = i;
-            }
-            if (term[i] == _term) idx = i;
-        }
-
-        // fail if no slot was found
-        require(idx != 9999, "registerLockedTokens: no available slot found");
-
-        // register locked tokens
-        if (term[idx] == 0) term[idx] = _term;
-        amnt[idx] = amnt[idx].add(_tokens);
-        mayHaveLockedTokens[_account] = true;
-        emit RegisteredLockedTokens(_account, idx, _tokens, _term);
-    }
-
-    // public view functions
-
-    function lockedTokens(address _account) public view returns (uint) {
-        if (!mayHaveLockedTokens[_account]) return 0;
-        return pNumberOfLockedTokens(_account);
-    }
-
-    function unlockedTokens(address _account) public view returns (uint) {
-        return balances[_account].sub(lockedTokens(_account));
-    }
-
-    function isAvailableLockSlot(address _account, uint _term) public view returns (bool) {
-        if (!mayHaveLockedTokens[_account]) return true;
-        if (_term < now) return true;
-        uint[LOCK_SLOTS] storage term = lockTerm[_account];
-        for (uint i; i < LOCK_SLOTS; i++) {
-            if (term[i] < now || term[i] == _term) return true;
-        }
-        return false;
-    }
-
-    // internal and private functions
-
-    function unlockedTokensInternal(address _account) internal returns (uint) {
-        // updates mayHaveLockedTokens if necessary
-        if (!mayHaveLockedTokens[_account]) return balances[_account];
-        uint locked = pNumberOfLockedTokens(_account);
-        if (locked == 0) mayHaveLockedTokens[_account] = false;
-        return balances[_account].sub(locked);
-    }
-
-    function pNumberOfLockedTokens(address _account) private view returns (uint locked) {
-        uint[LOCK_SLOTS] storage term = lockTerm[_account];
-        uint[LOCK_SLOTS] storage amnt = lockAmnt[_account];
-        for (uint i; i < LOCK_SLOTS; i++) {
-            if (term[i] >= now) locked = locked.add(amnt[i]);
-        }
-    }
-
-}
-
-
-// ----------------------------------------------------------------------------
-//
-// FantomIcoDates
-//
-// ----------------------------------------------------------------------------
-
-contract FantomIcoDates is Owned {
+contract EnosiIcoDates is Owned {
 
     uint public dateMainStart = 1529053200; // 15-JUN-2018 09:00 GMT + 0
     uint public dateMainEnd   = 1529658000; // 22-JUN-2018 09:00 GMT + 0
@@ -332,11 +245,11 @@ contract FantomIcoDates is Owned {
 
 // ----------------------------------------------------------------------------
 //
-// Fantom public token sale
+// Enosi public token sale
 //
 // ----------------------------------------------------------------------------
 
-contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
+contract EnosiToken is ERC20Token, Wallet, EnosiIcoDates {
 
     // Utility variable
 
@@ -344,13 +257,13 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
 
     // Basic token data
 
-    string public constant name = "Fantom Token";
-    string public constant symbol = "FTM";
+    string public constant name = "JOUL Token";
+    string public constant symbol = "JOUL";
     uint8 public constant decimals = 18;
 
     // Token number of possible tokens in existance
 
-    uint public constant MAX_TOTAL_TOKEN_SUPPLY = 3175000000 * E18;
+    uint public constant MAX_TOTAL_TOKEN_SUPPLY = 100000000 * E18;
 
 
     // crowdsale parameters
@@ -397,7 +310,7 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
 
     event UpdatedTokensPerEth(uint tokensPerEth);
     event Whitelisted(address indexed account, uint countWhitelisted);
-    event TokensMinted(uint indexed mintType, address indexed account, uint tokens, uint term);
+    event TokensMinted(uint indexed mintType, address indexed account, uint tokens);
     event RegisterContribution(address indexed account, uint tokensIssued, uint ethContributed, uint ethReturned);
     event TokenExchangeRequested(address indexed account, uint tokens);
 
@@ -460,7 +373,7 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
     // any caller to make tokensTradeable.
 
     function makeTradeable() public {
-        require(msg.sender == owner || now > dateMainEnd + 20 weeks);
+        require(msg.sender == owner || now > dateMainEnd + 26 weeks);
         tokensTradeable = true;
     }
 
@@ -482,27 +395,22 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
         }
     }
 
-    function mintTokensLocked(uint _mint_type, address _account, uint _tokens, uint _term) public onlyOwner {
-        pMintTokens(_mint_type, _account, _tokens, _term);
+    function mintTokensLocked(uint _mint_type, address _account, uint _tokens) public onlyOwner {
+        pMintTokens(_mint_type, _account, _tokens);
     }
 
-    function mintTokensLockedMultiple(uint _mint_type, address[] _accounts, uint[] _tokens, uint[] _terms) public onlyOwner {
+    function mintTokensLockedMultiple(uint _mint_type, address[] _accounts, uint[] _tokens) public onlyOwner {
         require(_accounts.length == _tokens.length);
-        require(_accounts.length == _terms.length);
         for (uint i; i < _accounts.length; i++) {
-            pMintTokens(_mint_type, _accounts[i], _tokens[i], _terms[i]);
+            pMintTokens(_mint_type, _accounts[i], _tokens[i]);
         }
     }
 
-    function pMintTokens(uint _mint_type, address _account, uint _tokens, uint _term) private {
+    function pMintTokens(uint _mint_type, address _account, uint _tokens) private {
         require(whitelist[_account]);
         require(_account != 0x0);
         require(_tokens > 0);
         require(_tokens <= availableToMint(), "not enough tokens available to mint");
-        require(_term == 0 || _term > now, "either without lock term, or lock term must be in the future");
-
-        // register locked tokens (will throw if no slot is found)
-        if (_term > 0) registerLockedTokens(_account, _tokens, _term);
 
         // update
         balances[_account] = balances[_account].add(_tokens);
@@ -513,7 +421,7 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
 
         // log event
         emit Transfer(0x0, _account, _tokens);
-        emit TokensMinted(_mint_type, _account, _tokens, _term);
+        emit TokensMinted(_mint_type, _account, _tokens);
     }
 
     // Main sale ------------------------------------------
@@ -563,21 +471,6 @@ contract FantomToken is ERC20Token, Wallet, LockSlots, FantomIcoDates {
         // log
         emit Transfer(0x0, msg.sender, tokens_issued);
         emit RegisterContribution(msg.sender, tokens_issued, eth_contributed, eth_returned);
-    }
-
-    // Token exchange / migration to new platform ---------
-
-    function requestTokenExchangeMax() public {
-        requestTokenExchange(unlockedTokensInternal(msg.sender));
-    }
-
-    function requestTokenExchange(uint _tokens) public {
-        require(isMigrationPhaseOpen);
-        require(_tokens > 0 && _tokens <= unlockedTokensInternal(msg.sender));
-        balances[msg.sender] = balances[msg.sender].sub(_tokens);
-        tokensIssuedTotal = tokensIssuedTotal.sub(_tokens);
-        emit Transfer(msg.sender, 0x0, _tokens);
-        emit TokenExchangeRequested(msg.sender, _tokens);
     }
 
     // ERC20 functions -------------------
